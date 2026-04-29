@@ -41,18 +41,29 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           // Try to parse JSON; fall back to plain text
-          let reply: string;
+          let reply: string | null = null;
+          let shape = "text";
           try {
             const data = JSON.parse(text);
-            reply =
-              data.output ??
-              data.reply ??
-              data.message ??
-              data.text ??
-              data.response ??
-              (typeof data === "string" ? data : JSON.stringify(data));
+            const extracted = extractReply(data);
+            if (extracted.value) {
+              reply = extracted.value;
+              shape = extracted.shape;
+            }
           } catch {
-            reply = text;
+            if (text.trim()) {
+              reply = text;
+              shape = "raw-text";
+            }
+          }
+
+          console.log("n8n response", { status: res.status, shape });
+
+          if (!reply) {
+            return Response.json(
+              { error: "Upstream response did not contain an assistant message" },
+              { status: 502 }
+            );
           }
 
           return Response.json({ reply });

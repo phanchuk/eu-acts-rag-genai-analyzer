@@ -75,3 +75,50 @@ export const Route = createFileRoute("/api/chat")({
     },
   },
 });
+
+function pickString(v: unknown): string | null {
+  return typeof v === "string" && v.trim() ? v : null;
+}
+
+function extractReply(data: unknown): { value: string | null; shape: string } {
+  if (typeof data === "string") return { value: data, shape: "string" };
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return { value: null, shape: "empty-array" };
+    const inner = extractReply(data[0]);
+    return { value: inner.value, shape: `array[0].${inner.shape}` };
+  }
+
+  if (data && typeof data === "object") {
+    const d = data as Record<string, unknown>;
+
+    // OpenAI-style: { choices: [{ message: { content } }] }
+    if (Array.isArray(d.choices) && d.choices.length > 0) {
+      const inner = extractReply(d.choices[0]);
+      if (inner.value) return { value: inner.value, shape: `choices[0].${inner.shape}` };
+    }
+
+    // { message: { content } } or { message: "..." }
+    if (d.message !== undefined) {
+      if (typeof d.message === "string" && d.message.trim()) {
+        return { value: d.message, shape: "message" };
+      }
+      if (d.message && typeof d.message === "object") {
+        const c = pickString((d.message as Record<string, unknown>).content);
+        if (c) return { value: c, shape: "message.content" };
+      }
+    }
+
+    // Direct content field
+    const direct =
+      pickString(d.output) ??
+      pickString(d.reply) ??
+      pickString(d.text) ??
+      pickString(d.response) ??
+      pickString(d.content) ??
+      pickString(d.answer);
+    if (direct) return { value: direct, shape: "field" };
+  }
+
+  return { value: null, shape: "unknown" };
+}

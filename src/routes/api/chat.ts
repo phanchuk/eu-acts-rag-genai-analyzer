@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import jwt from "jsonwebtoken";
 
 const WEBHOOK_URL =
   "https://n8n-rag-test-u72212.vm.elestio.app/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca";
@@ -16,15 +17,18 @@ export const Route = createFileRoute("/api/chat")({
             return Response.json({ error: "message too long" }, { status: 400 });
           }
 
-          const jwt = process.env.WEBHOOK_JWT;
-          if (!jwt) {
+          const secret = process.env.WEBHOOK_JWT;
+          if (!secret) {
             return Response.json({ error: "Server missing WEBHOOK_JWT" }, { status: 500 });
           }
+
+          // Sign a fresh HS256 token per request using WEBHOOK_JWT as the shared secret
+          const token = jwt.sign({}, secret, { algorithm: "HS256", expiresIn: "5m" });
 
           const url = `${WEBHOOK_URL}?message=${encodeURIComponent(message)}`;
           const res = await fetch(url, {
             method: "GET",
-            headers: { Authorization: `Bearer ${jwt}` },
+            headers: { Authorization: `Bearer ${token}` },
           });
 
           const text = await res.text();

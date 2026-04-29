@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/chat")({
           if (!res.ok) {
             console.error("Webhook error", res.status, text);
             return Response.json(
-              { error: `Webhook returned ${res.status}`, details: text.slice(0, 500) },
+              { error: "Upstream service unavailable" },
               { status: 502 }
             );
           }

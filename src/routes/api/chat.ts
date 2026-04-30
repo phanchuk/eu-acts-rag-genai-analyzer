@@ -32,12 +32,23 @@ export const Route = createFileRoute("/api/chat")({
           });
 
           const text = await res.text();
+          const offlineReply =
+            "I'm offline right now — the AI service is temporarily unavailable (no tokens left). Please try again later.";
+
           if (!res.ok) {
             console.error("Webhook error", res.status, text);
+            if (isQuotaError(text)) {
+              return Response.json({ reply: offlineReply });
+            }
             return Response.json(
               { error: "Upstream service unavailable" },
               { status: 502 }
             );
+          }
+
+          // Even on 200, n8n may return an OpenAI quota error in the body
+          if (isQuotaError(text)) {
+            return Response.json({ reply: offlineReply });
           }
 
           // Try to parse JSON; fall back to plain text
@@ -78,6 +89,20 @@ export const Route = createFileRoute("/api/chat")({
 
 function pickString(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v : null;
+}
+
+function isQuotaError(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return (
+    t.includes("insufficient_quota") ||
+    t.includes("exceeded your current quota") ||
+    t.includes("you exceeded your current quota") ||
+    t.includes("rate_limit_exceeded") ||
+    t.includes("quota") && t.includes("openai") ||
+    t.includes("billing") && t.includes("openai") ||
+    t.includes("error code: 429")
+  );
 }
 
 function extractReply(data: unknown): { value: string | null; shape: string } {

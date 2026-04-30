@@ -32,12 +32,23 @@ export const Route = createFileRoute("/api/chat")({
           });
 
           const text = await res.text();
+          const offlineReply =
+            "I'm offline right now — the AI service is temporarily unavailable (no tokens left). Please try again later.";
+
           if (!res.ok) {
             console.error("Webhook error", res.status, text);
+            if (isQuotaError(text)) {
+              return Response.json({ reply: offlineReply });
+            }
             return Response.json(
               { error: "Upstream service unavailable" },
               { status: 502 }
             );
+          }
+
+          // Even on 200, n8n may return an OpenAI quota error in the body
+          if (isQuotaError(text)) {
+            return Response.json({ reply: offlineReply });
           }
 
           // Try to parse JSON; fall back to plain text

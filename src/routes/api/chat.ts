@@ -91,6 +91,20 @@ function pickString(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v : null;
 }
 
+function isQuotaError(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return (
+    t.includes("insufficient_quota") ||
+    t.includes("exceeded your current quota") ||
+    t.includes("you exceeded your current quota") ||
+    t.includes("rate_limit_exceeded") ||
+    t.includes("quota") && t.includes("openai") ||
+    t.includes("billing") && t.includes("openai") ||
+    t.includes("error code: 429")
+  );
+}
+
 function extractReply(data: unknown): { value: string | null; shape: string } {
   if (typeof data === "string") return { value: data, shape: "string" };
 

@@ -1,63 +1,65 @@
 # 📚 Study Project — EU Acts RAG GenAI Analyzer
 
-A Retrieval-Augmented Generation (RAG) system designed to analyze and answer questions based on EU regulations (e.g. DSA, AI Act, Data Act etc).
+A Retrieval-Augmented Generation (RAG) system designed to analyze and answer questions based on EU regulations (e.g. DSA, AI Act, Data Act).
 
 The project focuses on building an end-to-end pipeline: from document ingestion and embedding to context-aware answer generation.
 
 ---
 
 ## 💡 Key Features
-- Semantic search over EU legal documents
-- RAG-based question answering using LLMs
-- Automated document ingestion from Google Drive
-- Context-aware responses grounded in source material
+- Semantic search over EU legal documents  
+- RAG-based question answering using LLMs  
+- Automated document ingestion from Google Drive  
+- Context-aware responses grounded in source material  
 - Modular workflow for:
-  - Embedding pipeline
-  - Retrieval
-  - Answer generation
+  - Embedding pipeline  
+  - Retrieval  
+  - Answer generation  
 
 ---
 
 ## 🛠 Tech Stack
-- Lovable (UI layer / prototyping)
-- Elestio (cloud hosting)
-- n8n (workflow orchestration)
-  - Embedding pipeline
-  - RAG query pipeline
-- Google Cloud
-  - Google Drive API
-- Google Drive (document storage)
-- OpenAI API (embeddings + generation)
+- Lovable (UI layer / prototyping)  
+- Elestio (cloud hosting)  
+- n8n (workflow orchestration)  
+  - Embedding pipeline  
+  - RAG query pipeline  
+- Google Cloud  
+  - Google Drive API  
+- Google Drive (document storage)  
+- Pinecone (vector database for embeddings)  
+- OpenAI API (embeddings + generation)  
 
 ---
 
 ## ⚙️ System Architecture (High-Level)
-1. **Document Ingestion**
-   - Files uploaded to Google Drive
-   - Triggered via n8n workflow
 
-2. **Preprocessing & Embedding**
-   - Text extraction and chunking
-   - Metadata enrichment
-   - Embeddings generated via OpenAI
-   - Stored in vector database
+### 1. Document Ingestion
+- Files uploaded to Google Drive  
+- Triggered via n8n workflow  
 
-3. **RAG Query Flow**
-   - User query → embedding
-   - Semantic retrieval (top-K chunks)
-   - Context injection into LLM
-   - Final grounded answer
+### 2. Preprocessing & Embedding
+- Text extraction and chunking  
+- Metadata enrichment  
+- Embeddings generated via OpenAI  
+- Stored in Pinecone  
+
+### 3. RAG Query Flow
+- User query → embedding  
+- Semantic retrieval from Pinecone (top-K chunks)  
+- Context injection into LLM  
+- Final grounded answer  
 
 ---
 
 ## 🧠 Product Thinking
-- Focus on **trustworthy AI outputs** (grounded in legal text)
-- Designed for **scalability** with modular pipelines
-- Emphasis on **retrieval quality** (chunking, metadata, query optimization)
+- Focus on **trustworthy AI outputs** (grounded in legal text)  
+- Designed for **scalability** with modular pipelines  
+- Emphasis on **retrieval quality** (chunking, metadata, query optimization)  
 - Built as an experimentation platform for:
-  - Prompt engineering
-  - RAG tuning
-  - Evaluation of answer quality
+  - Prompt engineering  
+  - RAG tuning  
+  - Evaluation of answer quality  
 
 ---
 

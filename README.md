@@ -20,7 +20,7 @@ The project focuses on building an end-to-end pipeline: from document ingestion 
 
 ## 🛠 Tech Stack
 - Lovable (UI layer / prototyping)  
-- Elestio (cloud hosting)  
+- Elestio / Hostinger (cloud hosting)  
 - n8n (workflow orchestration)  
   - Embedding pipeline  
   - RAG query pipeline  
@@ -70,9 +70,15 @@ The project focuses on building an end-to-end pipeline: from document ingestion 
 
 ### RAG Answer Flow (n8n)
 <img width="964" height="300" alt="RAG answer n8n" src="https://github.com/user-attachments/assets/c9117e70-7236-4ee1-a442-00042405d0d4" />
+<img width="1406" height="723" alt="image" src="https://github.com/user-attachments/assets/8a0eb2d8-ac4b-48a5-b817-a93c6e4735b7" />
 
 ### RAG Embedding Flow (n8n)
 <img width="806" height="368" alt="RAG EMBEDDING n8n" src="https://github.com/user-attachments/assets/c5288349-8e08-4801-8780-a292b3ef83bf" />
+<img width="1425" height="773" alt="image" src="https://github.com/user-attachments/assets/7d77e356-d1d5-4dcb-8400-3d6d33af4195" />
+
+### Pinecone 
+<img width="1844" height="862" alt="image" src="https://github.com/user-attachments/assets/26a29fcc-2ca3-47a9-9563-6afa6c06a706" />
+
 
 ---
 

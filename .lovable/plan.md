@@ -1,56 +1,38 @@
-## Migration Plan: Elestio → Hostinger n8n
+## Validate Hostinger n8n migration (Option A — reuse existing WEBHOOK_JWT)
 
-### Code change (single file)
-**`src/routes/api/chat.ts`** — update the `WEBHOOK_URL` constant from the Elestio production URL to the new Hostinger production URL:
+No code changes needed — `src/routes/api/chat.ts` already points to the Hostinger production URL and `WEBHOOK_JWT` is unchanged.
 
-```
-https://n8n.srv1669108.hstgr.cloud/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca
-```
+### Pre-flight checklist (you, in n8n)
+1. Workflow is **Active** (toggle top-right of the workflow editor) — only Active workflows serve `/webhook/...`. The `/webhook-test/...` path only works while you click "Execute workflow".
+2. Both webhook nodes (chat + embedding) have **Authentication = JWT Auth**, credential set to HS256 with secret = the Lovable `WEBHOOK_JWT` value.
+3. Chat webhook node:
+   - HTTP Method: `GET`
+   - Path: `8b6b77f6-fac8-4989-bf56-b5174bca87ca`
+   - Reads `query.message`
+4. OpenAI / Pinecone / Google Drive credentials are recreated and the workflow's nodes reference the new credential entries (not the old Elestio ones — those show as red).
 
-The test URL (`/webhook-test/...`) is only used inside the n8n editor for "Execute workflow" runs — it does not belong in app code. App always points to the production URL.
+### Validation steps (me, then you)
 
-No other code changes needed: JWT signing logic, error handling, and quota fallback all remain identical because Hostinger is just a different host running the same n8n instance.
+**Step 1 — Direct curl from my sandbox to the Hostinger webhook**
+I'll run two probes against `https://n8n.srv1669108.hstgr.cloud/webhook/8b6b77f6-...`:
+- (a) no Authorization header → expect `401/403` (proves JWT Auth is enforced)
+- (b) with a fresh HS256 token signed using `WEBHOOK_JWT` → expect `200` and an assistant reply
 
-### Steps you need to do (in order)
+Possible outcomes and what they mean:
+- (a) returns 200 → JWT Auth is NOT enabled on the node — fix in n8n
+- (a) 401 + (b) 401 → secret mismatch between Lovable and n8n — re-paste in n8n
+- (a) 401 + (b) 404 → workflow not Active, or webhook path differs — re-check
+- (a) 401 + (b) 200 with quota text → auth works, OpenAI key issue (separate problem)
+- (a) 401 + (b) 200 with reply → migration is good
 
-**Step 1 — Import the workflow into the new n8n**
-- Export the workflow JSON from the Elestio n8n (Workflow menu → Download)
-- Import it into the Hostinger n8n
-- Verify both webhook nodes still have path `8b6b77f6-fac8-4989-bf56-b5174bca87ca` (n8n usually preserves it; if it generated a new ID, tell me and I'll update the code)
+**Step 2 — End-to-end through the deployed app**
+Once Step 1 is green, you click **Publish → Update** so the live site picks up the new `WEBHOOK_URL`, then send a chat message from `https://eu-acts-rag-ai-analyzer.lovable.app`. I'll watch server logs (`n8n response { status, shape }`) to confirm.
 
-**Step 2 — Re-create credentials in the new n8n**
-Credentials don't transfer with the JSON export. In the Hostinger n8n, recreate:
-- OpenAI API credential (paste the same OpenAI key)
-- Pinecone credential (same API key + environment)
-- Google Drive OAuth (re-authorize — OAuth tokens are host-bound)
-- Any other credentials your workflow uses
+**Step 3 — Embedding workflow smoke test**
+Drop a test file into the configured Google Drive folder. Confirm in n8n's Executions tab that the embedding workflow ran and Pinecone received vectors.
 
-**Step 3 — Configure JWT Auth on both webhook nodes**
-On both the embedding and the chat webhook nodes:
-- Authentication → JWT Auth
-- Create a JWT Auth credential: algorithm `HS256`, secret = the value of `WEBHOOK_JWT` (same secret you use today on Elestio)
-- Save and **Activate** the workflow
+**Step 4 — Decommission**
+Once Steps 1–3 pass and stay green for ~24h, deactivate the Elestio workflow and shut down the Elestio instance.
 
-**Step 4 — Confirm the Hostinger production URL**
-Once activated, n8n shows the live production URL on the webhook node. Confirm it is exactly:
-```
-https://n8n.srv1669108.hstgr.cloud/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca
-```
-If it differs, share the new URL.
-
-**Step 5 — I update the code and you publish**
-After you confirm Step 4, switch me to default mode. I update `WEBHOOK_URL` in `src/routes/api/chat.ts`, then you click Publish so the live site hits the new host.
-
-**Step 6 — Smoke test**
-- Send a chat message from the published site → expect a real answer
-- Trigger the embedding workflow (drop a file in Drive) → expect Pinecone to receive vectors
-
-**Step 7 — Decommission Elestio**
-Once Hostinger is confirmed working for a day or two, deactivate the Elestio workflow and shut down the Elestio instance.
-
-### Credentials I will need from you
-None right now. The only secret involved is `WEBHOOK_JWT`, which is already set in Lovable — you just need to paste the same value into the n8n JWT Auth credential on the new host. If you've lost that value, tell me and I'll switch to a rotation flow (generate a new secret, update both Lovable and n8n).
-
-### Notes
-- The webhook ID (`8b6b77f6-...`) is the same string on both hosts because it lives inside the workflow JSON, so importing the workflow preserves it.
-- DNS / custom domain: if you later want `n8n.yourdomain.com` instead of `srv1669108.hstgr.cloud`, that's a Hostinger-side DNS change and one more code update — out of scope for this migration.
+### What I need from you to start
+Just confirm the workflow is **Active** on Hostinger and JWT Auth is configured on both nodes. Then approve this plan and I'll run Step 1 immediately.

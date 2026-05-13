@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import jwt from "jsonwebtoken";
 
 const WEBHOOK_URL =
-  "https://n8n-rag-test-u72212.vm.elestio.app/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca";
+  "https://n8n.srv1669108.hstgr.cloud/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca";
 
 export const Route = createFileRoute("/api/chat")({
   server: {

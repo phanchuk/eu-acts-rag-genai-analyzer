@@ -1,98 +1,56 @@
-## Diagnosis
+## Migration Plan: Elestio → Hostinger n8n
 
-The app is successfully reaching the n8n production webhook and returning HTTP 200. The problem is in how the Lovable `/api/chat` route extracts the answer from n8n's response.
+### Code change (single file)
+**`src/routes/api/chat.ts`** — update the `WEBHOOK_URL` constant from the Elestio production URL to the new Hostinger production URL:
 
-Your n8n **Respond to Webhook** output screenshot shows this shape:
-
-```text
-[
-  {
-    "index": 0,
-    "message": {
-      "role": "assistant",
-      "content": "The DSA Regulation ..."
-    },
-    "logprobs": null,
-    "finish_reason": "stop"
-  }
-]
+```
+https://n8n.srv1669108.hstgr.cloud/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca
 ```
 
-The current Lovable parser only checks top-level fields like:
+The test URL (`/webhook-test/...`) is only used inside the n8n editor for "Execute workflow" runs — it does not belong in app code. App always points to the production URL.
 
-```text
-output, reply, message, text, response
+No other code changes needed: JWT signing logic, error handling, and quota fallback all remain identical because Hostinger is just a different host running the same n8n instance.
+
+### Steps you need to do (in order)
+
+**Step 1 — Import the workflow into the new n8n**
+- Export the workflow JSON from the Elestio n8n (Workflow menu → Download)
+- Import it into the Hostinger n8n
+- Verify both webhook nodes still have path `8b6b77f6-fac8-4989-bf56-b5174bca87ca` (n8n usually preserves it; if it generated a new ID, tell me and I'll update the code)
+
+**Step 2 — Re-create credentials in the new n8n**
+Credentials don't transfer with the JSON export. In the Hostinger n8n, recreate:
+- OpenAI API credential (paste the same OpenAI key)
+- Pinecone credential (same API key + environment)
+- Google Drive OAuth (re-authorize — OAuth tokens are host-bound)
+- Any other credentials your workflow uses
+
+**Step 3 — Configure JWT Auth on both webhook nodes**
+On both the embedding and the chat webhook nodes:
+- Authentication → JWT Auth
+- Create a JWT Auth credential: algorithm `HS256`, secret = the value of `WEBHOOK_JWT` (same secret you use today on Elestio)
+- Save and **Activate** the workflow
+
+**Step 4 — Confirm the Hostinger production URL**
+Once activated, n8n shows the live production URL on the webhook node. Confirm it is exactly:
 ```
-
-So when n8n returns an array, or an OpenAI-style object where the actual answer is inside `message.content`, the app can miss the intended assistant content and fall back to the wrong serialized/previous value. This explains why n8n shows the correct answer in the execution, while the chatbot displays nonsensical RAG chunk text.
-
-## Plan
-
-### 1. Update `/api/chat` response extraction
-
-Modify `src/routes/api/chat.ts` so it supports the real n8n/OpenAI response shapes:
-
-- Plain text response
-- `{ output: "..." }`
-- `{ reply: "..." }`
-- `{ text: "..." }`
-- `{ response: "..." }`
-- `{ message: "..." }`
-- `{ message: { content: "..." } }`
-- `[ { message: { content: "..." } } ]`
-- `[ { output/reply/text/response: "..." } ]`
-- OpenAI Chat Completions style: `{ choices: [{ message: { content: "..." } }] }`
-
-The highest-priority extraction will be `message.content`, because that is what your screenshot shows n8n is returning from the final OpenAI node.
-
-### 2. Make empty/unrecognized responses explicit
-
-If n8n returns valid JSON but no extractable answer, return a controlled error instead of displaying unrelated or stringified internals in the chat.
-
-Example client-visible message:
-
-```text
-Upstream response did not contain an assistant message
+https://n8n.srv1669108.hstgr.cloud/webhook/8b6b77f6-fac8-4989-bf56-b5174bca87ca
 ```
+If it differs, share the new URL.
 
-The server logs can still include the response shape for debugging, but will avoid exposing secrets or raw upstream error bodies to the browser.
+**Step 5 — I update the code and you publish**
+After you confirm Step 4, switch me to default mode. I update `WEBHOOK_URL` in `src/routes/api/chat.ts`, then you click Publish so the live site hits the new host.
 
-### 3. Add temporary-safe debugging for response shape only
+**Step 6 — Smoke test**
+- Send a chat message from the published site → expect a real answer
+- Trigger the embedding workflow (drop a file in Drive) → expect Pinecone to receive vectors
 
-Add a short server log that records only:
+**Step 7 — Decommission Elestio**
+Once Hostinger is confirmed working for a day or two, deactivate the Elestio workflow and shut down the Elestio instance.
 
-- HTTP status
-- whether the body is JSON or text
-- detected response shape, such as `array[0].message.content`
+### Credentials I will need from you
+None right now. The only secret involved is `WEBHOOK_JWT`, which is already set in Lovable — you just need to paste the same value into the n8n JWT Auth credential on the new host. If you've lost that value, tell me and I'll switch to a rotation flow (generate a new secret, update both Lovable and n8n).
 
-It will not log `WEBHOOK_JWT`, Authorization headers, or full upstream error bodies.
-
-### 4. Keep your n8n production URL and JWT flow as-is
-
-No change is needed to the webhook URL or JWT signing. The production URL is already being called successfully; the fix is response normalization on the Lovable side.
-
-## Expected result
-
-For your current n8n output, Lovable will display:
-
-```text
-The DSA Regulation (Regulation (EU) 2024/1689) was established on June 13, 2024...
-```
-
-instead of the irrelevant DMA/EU AI Act chunk summary.
-
-## Technical details
-
-Implement a small helper in `src/routes/api/chat.ts`, for example:
-
-```text
-extractReply(data): string | null
-```
-
-It will recursively check the common n8n/OpenAI response containers in a safe order, then the POST handler will return:
-
-```text
-Response.json({ reply })
-```
-
-only when a real assistant message was found.
+### Notes
+- The webhook ID (`8b6b77f6-...`) is the same string on both hosts because it lives inside the workflow JSON, so importing the workflow preserves it.
+- DNS / custom domain: if you later want `n8n.yourdomain.com` instead of `srv1669108.hstgr.cloud`, that's a Hostinger-side DNS change and one more code update — out of scope for this migration.
